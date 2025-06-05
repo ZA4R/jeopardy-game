@@ -1,3 +1,4 @@
+import pygame
 import os
 
 # get current dir and project root
@@ -34,7 +35,7 @@ def draw_text(surface, text, font, color, center_x, center_y):
 
 def draw_button(surface, text, font, rect, color, text_color, border_radius=10):
     """
-    Helper function to draw a button with a slight shadow and border.
+    Draws a button with a slight shadow and border.
     """
     # Draw shadow for depth
     shadow_offset = 3

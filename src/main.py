@@ -1,12 +1,35 @@
+import logging
+import os
 import pygame
 import sys
-import os
-import serial
+import pyserial
 import time
 from data.settings import FPS
 
+# consts
+MAX_PLAYERS = 6
+
+# setup
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(project_root)
+
+# Define the log file path
+log_directory = 'logs'
+log_file_path = os.path.join(log_directory, 'game_errors.log')
+
+# Create the logs directory if it doesn't exist
+os.makedirs(log_directory, exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout), 
+        logging.FileHandler(log_file_path)
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 def main():
     # inits
@@ -14,6 +37,20 @@ def main():
     pygame.font.init()
     pygame.init()
     clock = pygame.time.Clock()
+    
+    # device specific port where arduino is connected
+    SERIAL_PORT = 'COM3'
+    # match arduino, 9600 bits is standard
+    BAUD_RATE = 9600
+
+    # serial setup
+    ser = None
+    try:
+        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.1)
+        logger.info("Connected to port: {SERIAL_PORT}")
+    except serial.SerialException as e:
+        logger.error("Unable to connect to port: {SERIAL_PORT}: {e}")
+        sys.exit()
 
     # get screen size for fullscreen
     infoObject = pygame.display.Info()
@@ -23,6 +60,8 @@ def main():
     # set screen
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Main Menu")
+
+    
 
     return
 
@@ -72,18 +111,6 @@ QUESTIONS = {
         1000: {"question": "Which country has won the most FIFA World Cups?", "answer": "Brazil", "answered": False},
     },
 }
-
-# --- Game State Variables ---
-# Controls the current screen/phase of the game
-# States: "BOARD", "SHOWING_QUESTION", "WAITING_FOR_BUZZER", "BUZZER_RESPONDED"
-current_state = "BOARD"
-selected_category = None # Stores the category of the selected question
-selected_value = None    # Stores the dollar value of the selected question
-buzzer_pressed_by = None # Stores which player (e.g., 'PLAYER 1', 'PLAYER 2') pressed the buzzer
-buzzer_feedback_timer = 0 # Used to control how long the "Player X Buzzed In!" message is shown
-
-
-
 
 # --- Game Loop ---
 running = True
