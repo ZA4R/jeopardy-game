@@ -1,68 +1,85 @@
 from __future__ import annotations
-from enum import Enum
 
+from pygame import Surface
+from .display import draw_board, draw_question_screen
+from.game_utils import Question, Category, Round, Player
+from.music import play_music, stop_music, set_music_volume, final_music_list, victory_music_list
+import logging
 
-class GameState(Enum):
+# get logger
+logger = logging.getLogger(__name__)
+class Game:
     """
-    Defines possible game states.
-    """
-    
-    BOARD = "b"
-    SHOWING_QUESTION = "sq"
-
-class GameBoard:
-    """
-    GameBoard keeps track of the game board state throughout the game.
+    Responsible for managing and executing a game.
 
     Attributes:
-        round_one_categories: list[Category]
-        round_two_categories: list[Category]
+        players: list of player objects
+        screen: pygame surface on which the game will appear (set by main.py)
+        board: GameBoard object used to keep track of board state
+    """
+    players = [] 
+    screen: Surface 
+    def __init__(self) -> None:
+        self.board = GameBoard
+        self.add_players(4) # 4 hardcoded until basic outline complete
+
+    def start(self):
+        for round in self.board.rounds:
+            self.play_round(round)
+        self.play_final()
+    
+    def play_round(self, round: Round):
+        # implement daily doubles
+        running = True
+        while running:
+            pass
+
+    def play_final(self):
+        # need to figure out how betting system will work
+        pass
+
+    def add_players(self, num):
+        if num < 1 or num + len(self.players) > 6:
+            logger.error(f"cannot add {num} players (max of 6)")
+            return
+
+        for _ in range(num):
+            self.players.append(Player())
+
+    def remove_players(self, num):
+        if num < 1:
+            logger.error(f"cannot remove {num} players (min 1)")
+            return
+        if num > len(self.players):
+            logger.error(f"cannot remove {num} players (max of {len(self.players)})")
+            return
+
+        for _ in range(num):
+            del self.players[len(self.players) - 1]
+        
+class GameBoard:
+    """
+    GameBoard keeps track of board state.
+
+    Attributes:
+        rounds: list[Round]
         round_final: Question
     """
-    def __init__(self):
-        self.round_one_categories: list[Category] = get_random_categories()
-        self.round_two_categories: list[Category] = get_random_categories()
-        self.round_final: Question = get_question(1000)
-    
-    def get_random_categories(self) -> list[Category]:
-        """
-        Returns a list of six random categories populated with questions.
-        """
-        pass
+    rounds = []
+    def __init__(self, round_num):
+        for _ in range(round_num):
+            self.rounds.append(Round())
+        self.round_final: Question = self.get_random_question(-1)
     
     def get_random_question(self, value: int) -> Question:
-        """Returns random Questino with given questino value.
+        """Returns random Question with given questino value.
 
         Args:
-            value (int): random question $ value
+            value (int): desired $ value, -1 denotes final jeopardy
 
         Returns:
             Question: object containing question attributes
         """
         pass
 
-class Category:
-    def __init__(self, name: str):
-        # pull questions from db
-        self.name = name
-        self.questions = get_random_questions(name)
 
-    def get_random_questions(self, category: str="") -> list[Question]:
-        """
-        Returns list[Question] for given category, one question per value.
-
-        Params:
-            category: str="" - determines question category, default is random
-        """
-        pass
-
-class Question:
-    """
-    Represents a question including its clue, answer, value, category, and origin.
-    """
-    def __init__(self, clue: str, answer: str, value: int, category: str, origin: str):
-        self.clue = clue
-        self.answer = answer
-        self.value = value
-        self.category = category
-        self.origin = origin

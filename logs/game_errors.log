@@ -1,0 +1,73 @@
+2025-06-07 15:32:08,714 - __main__ - ERROR - Unable to connect to port: {SERIAL_PORT}: {e}
+2025-06-07 15:32:58,427 - src.music - ERROR - Music directory 'C:\Users\rhoad\assets\music' not found. No music will be loaded.
+2025-06-07 15:35:24,971 - src.music - INFO - Loaded 8 title songs, 4 final songs, 0 victory songs.
+2025-06-07 15:35:25,092 - src.music - INFO - Playing: title8billyjoel.mp3
+2025-06-07 15:41:31,630 - src.music - INFO - Loaded 8 title songs, 4 final songs, 0 victory songs.
+2025-06-07 15:41:31,731 - src.music - INFO - Playing: title8billyjoel.mp3
+2025-06-07 17:47:31,861 - src.music - INFO - Loaded 8 title songs, 4 final songs, 0 victory songs.
+2025-06-07 17:47:31,944 - src.music - INFO - Playing: title8billyjoel.mp3
+2025-06-07 17:51:45,572 - src.music - INFO - Loaded 8 title songs, 4 final songs, 0 victory songs.
+2025-06-07 17:51:45,661 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 17:55:16,537 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 17:55:16,610 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 17:55:29,465 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 17:55:29,538 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 17:55:38,557 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 17:55:38,644 - src.music - INFO - Playing: title1zelda.mp3
+2025-06-07 17:58:23,153 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 17:58:23,237 - src.music - INFO - Playing: title3starwars.mp3
+2025-06-07 18:04:44,060 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 18:04:44,135 - src.music - INFO - Playing: title3starwars.mp3
+2025-06-07 18:05:41,828 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 18:05:41,898 - src.music - INFO - Playing: title1zelda.mp3
+2025-06-07 18:07:29,460 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 18:07:29,551 - src.music - INFO - Playing: title5dk.mp3
+2025-06-07 20:33:49,022 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 20:34:48,497 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 20:34:48,605 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 20:35:12,749 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 20:35:12,838 - src.music - INFO - Playing: title3starwars.mp3
+2025-06-07 20:35:27,797 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 20:35:27,938 - src.music - INFO - Playing: title4sponge.mp3
+2025-06-07 20:35:56,960 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 20:35:57,076 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 20:36:07,384 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 20:36:07,468 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 20:46:08,187 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 20:46:08,305 - src.music - INFO - Playing: title6babyshark.mp3
+2025-06-07 20:50:51,625 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 20:50:51,737 - src.music - INFO - Playing: title1zelda.mp3
+2025-06-07 22:52:09,072 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:52:09,165 - src.music - INFO - Playing: title1zelda.mp3
+2025-06-07 22:52:30,163 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:52:30,273 - src.music - INFO - Playing: title1zelda.mp3
+2025-06-07 22:52:37,011 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:52:37,132 - src.music - INFO - Playing: title7retro1.mp3
+2025-06-07 22:52:58,766 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:52:58,872 - src.music - INFO - Playing: title6babyshark.mp3
+2025-06-07 22:53:34,199 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:53:34,331 - src.music - INFO - Playing: title4sponge.mp3
+2025-06-07 22:53:53,172 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:53:53,259 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 22:54:12,086 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:54:12,180 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 22:54:15,220 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:54:15,311 - src.music - INFO - Playing: title3starwars.mp3
+2025-06-07 22:54:26,002 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:54:26,094 - src.music - INFO - Playing: title6babyshark.mp3
+2025-06-07 22:54:32,918 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:54:33,003 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-07 22:54:35,450 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:54:35,538 - src.music - INFO - Playing: title4sponge.mp3
+2025-06-07 22:54:38,215 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:54:38,305 - src.music - INFO - Playing: title3starwars.mp3
+2025-06-07 22:54:40,922 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:54:41,010 - src.music - INFO - Playing: title8billyjoel.mp3
+2025-06-07 22:55:08,424 - src.music - INFO - Loaded 8 title songs, 2 final songs, 2 victory songs.
+2025-06-07 22:55:08,517 - src.music - INFO - Playing: title2pokemon.mp3
+2025-06-09 21:18:51,771 - __main__ - ERROR - Unable to connect to port: {SERIAL_PORT}: {e}
+2025-06-09 21:22:55,821 - __main__ - ERROR - Unable to connect to port: {SERIAL_PORT}: {e}
+2025-06-09 21:28:01,201 - __main__ - ERROR - Unable to connect to port: {SERIAL_PORT}: {e}
+2025-06-09 21:28:42,691 - __main__ - INFO - Connected to port: {SERIAL_PORT}
+2025-06-09 21:28:42,693 - src.music - INFO - Loaded 11 title songs, 3 final songs, 3 victory songs.
+2025-06-09 21:28:42,848 - src.music - INFO - Playing: titledarkhorse.mp3

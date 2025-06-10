@@ -1,11 +1,34 @@
+import logging
+from turtle import title
 import pygame
 import os
+
+from .game_utils import Round, Category, Question, Player
 
 # get current dir and project root
 current_dir = os.path.dirname(os.path.abspath(__file__))
 proj_root = os.path.abspath(os.path.join(current_dir, ".."))
 
+# get logger
+logger = logging.getLogger(__name__)
 
+# font setup
+pygame.font.init()
+try:
+    PIXEL_FONT = os.path.join(proj_root, "assets", "fonts", "pixel.ttf")
+except pygame.error as e:
+    logger.error(f"Unable to load font: {e}")
+except Exception as e:
+    logger.error(f"Unable to load font: {e}")
+
+category_font = pygame.font.Font(PIXEL_FONT, 40)
+dollar_font = pygame.font.Font(PIXEL_FONT, 60)
+question_font = pygame.font.Font(PIXEL_FONT, 45)
+instruction_font = pygame.font.Font(PIXEL_FONT, 30)
+player_font = pygame.font.Font(PIXEL_FONT, 30)
+score_font = pygame.font.Font(PIXEL_FONT, 30)
+buzzer_font = pygame.font.Font(PIXEL_FONT, 70)
+title_font = pygame.font.Font(PIXEL_FONT, 80)
 
 # colors
 BLACK = (0, 0, 0)
@@ -15,15 +38,6 @@ YELLOW = (255, 255, 0)
 RED = (255, 0, 0)
 GREEN = (0, 128, 0)
 GRAY = (100, 100, 100)
-
-# fonts
-PIXEL_FONT = os.path.join(proj_root, "assets", "fonts", "pixel.ttf")
-category_font = pygame.font.Font(PIXEL_FONT, 40)
-dollar_font = pygame.font.Font(PIXEL_FONT, 60)
-question_font = pygame.font.Font(PIXEL_FONT, 45)
-instruction_font = pygame.font.Font(PIXEL_FONT, 30)
-buzzer_font = pygame.font.Font(PIXEL_FONT, 70)
-
 
 def draw_text(surface, text, font, color, center_x, center_y):
     """
@@ -43,86 +57,235 @@ def draw_button(surface, text, font, rect, color, text_color, border_radius=10):
     # Draw the main button rectangle
     pygame.draw.rect(surface, color, rect, border_radius=border_radius)
     # Draw a white border around the button
-    pygame.draw.rect(surface, WHITE, rect, 2, border_radius=border_radius)
+    pygame.draw.rect(surface, YELLOW, rect, 2, border_radius=border_radius)
     # Draw the button text
     draw_text(surface, text, font, text_color, rect.centerx, rect.centery)
     return rect # Return the rectangle for click detection
 
-def wrap_text(surface, text, font, max_width):
+def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
     """
-    Wraps text to fit within a given maximum width.
-    Returns a list of lines.
+    Wraps text to fit within a given maximum width when rendered with a Pygame font.
+    Handles words that are themselves longer than the max_width by breaking them.
+
+    Args:
+        text (str): The full string of text to wrap.
+        font (pygame.font.Font): The Pygame font object to use for measuring text width.
+        max_width (int): The maximum pixel width for each line.
+
+    Returns:
+        list[str]: A list of strings, where each string represents a wrapped line.
     """
-    words = text.split(' ')
     lines = []
-    current_line = []
+    current_line_words = []
+
+    # Helper function to break a single word that's too long for a line
+    def _split_long_word(long_word: str) -> list[str]:
+        """
+        Breaks a single word that exceeds max_width into multiple sub-lines.
+        Each sub-line will fit within max_width.
+        """
+        sub_lines = []
+        current_segment = ""
+        for char in long_word:
+            # Check if adding the next character makes the segment too long
+            if font.size(current_segment + char)[0] <= max_width:
+                current_segment += char
+            else:
+                # Current segment is full, add it as a sub-line
+                sub_lines.append(current_segment)
+                current_segment = char # Start new segment with the current character
+        
+        # Add any remaining segment as the last sub-line
+        if current_segment:
+            sub_lines.append(current_segment)
+        return sub_lines
+
+    # Split the input text into words. This handles spaces correctly.
+    words = text.split(' ')
+
     for word in words:
-        # Test if adding the next word exceeds the max_width
-        test_line = ' '.join(current_line + [word])
-        if font.size(test_line)[0] <= max_width:
-            current_line.append(word)
+        # Measure the width of the current word
+        word_width = font.size(word)[0]
+
+        # --- Case 1: The current 'word' itself is too long for any single line ---
+        if word_width > max_width:
+            # If there are already words in the current line, finalize that line first
+            if current_line_words:
+                lines.append(' '.join(current_line_words))
+                current_line_words = [] # Reset for the new, long word
+
+            # Break the oversized word into smaller, fitting sub-lines
+            broken_word_parts = _split_long_word(word)
+            for part in broken_word_parts:
+                lines.append(part) # Add each part as a new full line
+
+            # Continue to the next word from the original list after processing this long one
+            continue
+
+        # --- Case 2: The current 'word' fits on the current line or starts a new one ---
+        # Test if adding the current word to the current_line_words exceeds the max_width
+        # Join current_line_words and the new word with a space for accurate width measurement
+        test_line_string = ' '.join(current_line_words + [word])
+        test_line_width = font.size(test_line_string)[0]
+
+        if test_line_width <= max_width:
+            # The word fits, so add it to the current line
+            current_line_words.append(word)
         else:
-            # If the current line is not empty, add it to the list of lines
-            if current_line:
-                lines.append(' '.join(current_line))
+            # The word does not fit on the current line
+            # Finalize the current line (if it's not empty)
+            if current_line_words:
+                lines.append(' '.join(current_line_words))
+            
             # Start a new line with the current word
-            current_line = [word]
-    # Add any remaining words as the last line
-    if current_line:
-        lines.append(' '.join(current_line))
+            current_line_words = [word]
+
+    # --- Final Step: Add any remaining words as the last line ---
+    # After the loop, if there are any words left in current_line_words,
+    # they form the last line.
+    if current_line_words:
+        lines.append(' '.join(current_line_words))
+
     return lines
 
+def draw_board(screen: pygame.Surface, categories: list[Category], players: list[Player]):
+    """
+    Draws the main Jeopardy game board, including categories, dollar values,
+    and player names/scores at the bottom.
 
-def draw_board(board: GameBoard, width, height):
+    Args:
+        screen (pygame.Surface): The Pygame screen surface to draw on.
+        categories (list[Category]): A list of Category objects, expected to be of length 6.
+        players (list[Player]): A list of Player objects (1 to 6 players).
+        category_font (pygame.font.Font): Font for category titles.
+        dollar_font (pygame.font.Font): Font for dollar values.
+        player_font (pygame.font.Font): Font for player names and scores.
+
+    Returns:
+        dict: A dictionary storing the Pygame Rect objects for each question cell.
+              Keys are (category_name, dollar_value) tuples, values are pygame.Rect objects.
     """
-    Draws the main Jeopardy game board, including categories and dollar values.
-    """
+    width, height = screen.get_size()
     screen.fill(BLACK)
-    # Draw category headers at the top
-    for i, category in enumerate(CATEGORIES):
-        cat_x = start_x + i * cell_width + cell_width // 2
-        draw_text(screen, category, category_font, YELLOW, cat_x, start_y - 50)
 
-    # Dictionary to store the Pygame Rect objects for each question cell.
-    # This is used for click detection.
-    question_rects = {} # {(category_name, dollar_value): pygame.Rect}
+    # --- Layout Calculations for Board and Player Area ---
+    num_categories = len(categories)
+    if num_categories != 6:
+        logger.error(f"Expected 6 categories, but got {num_categories}. Board layout may be off.")
+        # Proceeding with current num_categories, but layout might not be ideal
+        if num_categories == 0: # Avoid division by zero if no categories
+             return {}
 
-    # Draw individual dollar value cells for each category
-    for row_idx, value in enumerate(DOLLAR_VALUES):
-        for col_idx, category in enumerate(CATEGORIES):
-            q_data = QUESTIONS[category][value] # Get question data
-            rect_x = start_x + col_idx * cell_width
-            rect_y = start_y + row_idx * cell_height
-            # Add a small margin between cells for better visual separation
-            rect = pygame.Rect(rect_x + 5, rect_y + 5, cell_width - 10, cell_height - 10)
+    num_question_rows = 5 # Fixed number of questions per category
 
-            # Store the rectangle for click detection later
-            question_rects[(category, value)] = rect
+    # Define vertical space ratios for different sections
+    TOP_MARGIN_RATIO = 0.05       # Space above the board
+    BOTTOM_BOARD_GAP_RATIO = 0.03 # Gap between board and player info
+    PLAYER_INFO_HEIGHT_RATIO = 0.15 # Height allocated for player scores
+    SIDE_MARGIN_RATIO = 0.05      # Left/right margins for the board
 
-            if q_data["answered"]:
-                # If the question has been answered, draw a gray box with an 'X'
+    # Calculate pixel dimensions for each section
+    top_margin_px = height * TOP_MARGIN_RATIO
+    bottom_board_gap_px = height * BOTTOM_BOARD_GAP_RATIO
+    player_info_height_px = height * PLAYER_INFO_HEIGHT_RATIO
+    side_margin_px = width * SIDE_MARGIN_RATIO
+
+    # Calculate board dimensions
+    board_start_y = top_margin_px
+    board_end_y = height - player_info_height_px - bottom_board_gap_px
+    board_height = board_end_y - board_start_y
+    board_width = width - (2 * side_margin_px)
+
+    # Cell dimensions for the board
+    cell_width = board_width / num_categories
+    # +1 for category header row
+    cell_height = board_height / (num_question_rows + 1)
+
+    # Starting position for the question grid cells (below category headers)
+    grid_start_x = side_margin_px
+    grid_start_y = board_start_y + cell_height # Start below the category headers
+
+    question_rects = {}
+
+    # --- Draw Category Headers ---
+    for col, category in enumerate(categories):
+        cat_x = grid_start_x + col * cell_width + cell_width // 2
+        # Position category title in the top row of the board area
+        draw_text(screen, category.title.upper(), category_font, YELLOW, cat_x, board_start_y + cell_height // 2)
+
+        # Ensure questions are sorted by value for consistent display
+        # Use a defensive check if questions might be missing or not sorted
+        sorted_questions = sorted(category.questions, key=lambda q: q.value)
+
+        # --- Draw Question Cells ---
+        for row, question_obj in enumerate(sorted_questions):
+            rect_x = grid_start_x + col * cell_width
+            rect_y = grid_start_y + row * cell_height
+
+            # Inner padding for cells
+            rect_padding = 5
+            rect = pygame.Rect(rect_x + rect_padding, rect_y + rect_padding,
+                               cell_width - (2 * rect_padding), cell_height - (2 * rect_padding))
+
+            question_rects[(category.title, question_obj.value)] = rect
+
+            if hasattr(question_obj, 'answered') and question_obj.answered:
+                # Draw answered cell
                 pygame.draw.rect(screen, GRAY, rect, border_radius=10)
                 draw_text(screen, "X", dollar_font, BLACK, rect.centerx, rect.centery)
             else:
-                # If not answered, draw the blue box with the dollar value
+                # Draw active question cell
                 pygame.draw.rect(screen, BLUE, rect, border_radius=10)
                 pygame.draw.rect(screen, WHITE, rect, 3, border_radius=10) # White border
-                draw_text(screen, f"${value}", dollar_font, YELLOW, rect.centerx, rect.centery)
+                draw_text(screen, f"${question_obj.value}", dollar_font, YELLOW, rect.centerx, rect.centery)
+
+    # --- Draw Player Names and Scores at the Bottom ---
+    num_players = len(players)
+    if num_players > 0:
+        player_area_width = width
+        player_cell_width = player_area_width / num_players
+        player_area_y = height - player_info_height_px # Top of the player info area
+
+        for i, player in enumerate(players):
+            player_rect_x = i * player_cell_width
+            player_rect = pygame.Rect(player_rect_x, player_area_y, player_cell_width, player_info_height_px)
+
+            # Draw a background for each player's info
+            player_bg_color = (30, 30, 30) # Darker gray for player background
+            # Add some padding/margin to player cells
+            player_inner_padding = 10
+            pygame.draw.rect(screen, player_bg_color, 
+                             (player_rect.x + player_inner_padding, 
+                              player_rect.y + player_inner_padding, 
+                              player_rect.width - 2 * player_inner_padding, 
+                              player_rect.height - 2 * player_inner_padding), 
+                             border_radius=5)
+            
+            # Draw player name
+            draw_text(screen, player.name.upper(), player_font, WHITE, 
+                      player_rect.centerx, player_rect.y + player_info_height_px * 0.3)
+            
+            # Draw player score
+            draw_text(screen, f"${player.score}", score_font, YELLOW, 
+                      player_rect.centerx, player_rect.y + player_info_height_px * 0.7)
+
+    pygame.display.flip() # Update the full display Surface to the screen
     return question_rects
 
-def draw_question_screen():
+def draw_question_screen(screen: pygame.Surface, question: Question):
     """
     Draws the screen displaying the selected question.
     Includes a button to start the buzzer round.
     """
     screen.fill(BLACK) # Clear the screen
 
-    question_text = QUESTIONS[selected_category][selected_value]["question"]
+    width, height = screen.get_size()
+
     # Wrap the question text to fit within the screen width
-    wrapped_lines = wrap_text(screen, question_text, question_font, WIDTH - 200)
+    wrapped_lines = wrap_text(question.clue, question_font, width - 200)
 
     # Define the rectangle for the question box
-    question_box_rect = pygame.Rect(50, 50, WIDTH - 100, HEIGHT - 200)
+    question_box_rect = pygame.Rect(50, 50, width - 100, height - 200)
     pygame.draw.rect(screen, BLUE, question_box_rect, border_radius=20) # Blue background
     pygame.draw.rect(screen, WHITE, question_box_rect, 5, border_radius=20) # White border
 
@@ -132,64 +295,79 @@ def draw_question_screen():
     for i, line in enumerate(wrapped_lines):
         draw_text(screen, line, question_font, WHITE, question_box_rect.centerx, text_start_y + i * line_height)
 
-    # Instructions for the user
-    instruction_text = "Click 'Start Buzzer Round' when ready for players to buzz in."
-    draw_text(screen, instruction_text, instruction_font, YELLOW, WIDTH // 2, HEIGHT - 100)
-
-    # Button to transition to the buzzer waiting state
-    start_buzzer_button_rect = pygame.Rect(WIDTH // 2 - 150, HEIGHT - 70, 300, 50)
-    draw_button(screen, "Start Buzzer Round", instruction_font, start_buzzer_button_rect, GREEN, WHITE)
-    return start_buzzer_button_rect # Return the button's rect for click detection
-
-def draw_waiting_for_buzzer_screen():
+def draw_main_menu(surface: pygame.Surface):
     """
-    Draws the screen while the game is actively waiting for a buzzer input.
+    Draws the main menu screen with a title and buttons.
+
+    Args:
+        surface (pygame.Surface): The surface to draw on (e.g., the screen).
+
+    Returns:
+        dict: A dictionary containing the pygame.Rect objects for each button,
+              e.g., {'start_button': rect, 'exit_button': rect}.
     """
-    screen.fill(BLACK) # Clear the screen
+    screen_width, screen_height = surface.get_size()
 
-    question_text = QUESTIONS[selected_category][selected_value]["question"]
-    wrapped_lines = wrap_text(screen, question_text, question_font, WIDTH - 200)
+    # Fill the background with the new Jeopardy Blue
+    surface.fill(BLUE)
 
-    # Question box (same as in draw_question_screen)
-    question_box_rect = pygame.Rect(50, 50, WIDTH - 100, HEIGHT - 200)
-    pygame.draw.rect(screen, BLUE, question_box_rect, border_radius=20)
-    pygame.draw.rect(screen, WHITE, question_box_rect, 5, border_radius=20)
+    # --- Draw the Game Title ---
+    title_text = "JEOPARDY! RIPOFF" # Updated title for theme
+    # Using GOLD_TEXT for the title
+    draw_text(surface, title_text, title_font, YELLOW, screen_width / 2, screen_height / 4)
 
-    line_height = question_font.get_linesize()
-    text_start_y = question_box_rect.centery - (len(wrapped_lines) * line_height) // 2
-    for i, line in enumerate(wrapped_lines):
-        draw_text(screen, line, question_font, WHITE, question_box_rect.centerx, text_start_y + i * line_height)
+    # --- Define Button Properties ---
+    main_button_width = 350
+    main_button_height = 150
+    main_button_spacing = 40 # Space between buttons
 
-    # Display "Waiting for buzzers..." message
-    draw_text(screen, "Waiting for buzzers...", buzzer_font, YELLOW, WIDTH // 2, HEIGHT - 100)
+    # Calculate main button positions to center them vertically and horizontally
+    center_x = screen_width / 2
+    
+    # Calculate the total height of all *main menu* buttons and spaces
+    # (Assuming you only have START, OPTIONS, EXIT in the main block)
+    # Based on your previous code, you had 'total_buttons_height = (button_height * 3) + (button_spacing * 2)'
+    # If you only want START and EXIT *centered*, adjust this.
+    # For now, let's just make sure START and EXIT are there.
+    
+    # If you intend to have START and EXIT as the only centered buttons:
+    total_centered_buttons_height = (main_button_height * 2) + main_button_spacing
+    start_y_centered_block = (screen_height / 2) - (total_centered_buttons_height / 2) # Start Y for the block of centered buttons
 
-def draw_buzzer_responded_screen():
-    """
-    Draws the screen indicating which player buzzed in.
-    Includes a button to return to the main board.
-    """
-    screen.fill(BLACK) # Clear the screen
+    # --- Draw Buttons ---
+    buttons = {}
 
-    question_text = QUESTIONS[selected_category][selected_value]["question"]
-    wrapped_lines = wrap_text(screen, question_text, question_font, WIDTH - 200)
+    # Start Button (centered in the main block)
+    start_button_rect = pygame.Rect(
+        center_x - main_button_width / 2,
+        start_y_centered_block + main_button_height + main_button_spacing,
+        main_button_width,
+        main_button_height
+    )
+    buttons['start_button'] = draw_button(
+        surface, "START GAME", category_font, start_button_rect,
+        BLUE, YELLOW
+    )
 
-    # Question box (same as before)
-    question_box_rect = pygame.Rect(50, 50, WIDTH - 100, HEIGHT - 200)
-    pygame.draw.rect(screen, BLUE, question_box_rect, border_radius=20)
-    pygame.draw.rect(screen, WHITE, question_box_rect, 5, border_radius=20)
 
-    line_height = question_font.get_linesize()
-    text_start_y = question_box_rect.centery - (len(wrapped_lines) * line_height) // 2
-    for i, line in enumerate(wrapped_lines):
-        draw_text(screen, line, question_font, WHITE, question_box_rect.centerx, text_start_y + i * line_height)
+    # --- Top-Right Exit Button ---
+    # Define properties for this smaller exit button
+    top_right_button_width = 100
+    top_right_button_height = 40
+    padding = 20 # Padding from the top and right edges
 
-    # Display who buzzed in, or a message if no one did (e.g., if timer ran out)
-    if buzzer_pressed_by:
-        draw_text(screen, f"{buzzer_pressed_by} BUZZED IN!", buzzer_font, RED, WIDTH // 2, HEIGHT - 100)
-    else:
-        draw_text(screen, "No one buzzed in!", buzzer_font, RED, WIDTH // 2, HEIGHT - 100)
+    top_right_exit_button_rect = pygame.Rect(
+        screen_width - top_right_button_width - padding,  # X: Screen width - button width - padding
+        padding,                                       # Y: Padding from top
+        top_right_button_width,
+        top_right_button_height
+    )
+    buttons['exit_button'] = draw_button(
+        surface, "X", category_font, top_right_exit_button_rect, # Using a smaller font for "X" if appropriate
+        RED, BLACK
+    )
 
-    # Button to go back to the board
-    back_button_rect = pygame.Rect(WIDTH // 2 - 100, HEIGHT - 50, 200, 40)
-    draw_button(screen, "Back to Board", instruction_font, back_button_rect, YELLOW, BLACK)
-    return back_button_rect # Return the button's rect for click detection
+    # not used in loop so display flip neccessary
+    pygame.display.flip()
+    
+    return buttons
