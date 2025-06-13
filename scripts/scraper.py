@@ -51,7 +51,7 @@ def main():
     # add questions to db
     for q in questions:
         add_jquestion(conn, q)
-    
+
     if conn:
         conn.close()
 
@@ -200,6 +200,8 @@ def add_jquestion(conn, question: Question):
 
     with conn:
         cursor.execute("INSERT INTO questions (clue, answer, value, category, origin) VALUES (?,?,?,?,?)", (f"{question.clue}",f"{question.answer}",f"{question.value}",f"{question.category}",f"{question.origin}"))
+    if cursor:
+        cursor.close()
     
 if __name__ == "__main__":
     main()
