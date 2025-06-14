@@ -400,7 +400,7 @@ def draw_main_menu(surface: pygame.Surface, fonts):
         main_button_height
     )
     buttons['start_button'] = draw_button(
-        surface, "START GAME", fonts["category"], start_button_rect,
+        surface, "START GAME", fonts["question"], start_button_rect,
         BLUE, YELLOW
     )
 

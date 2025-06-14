@@ -71,7 +71,7 @@ class Game:
         global category_font, dollar_font, player_font, score_font
 
         height = pygame.display.Info().current_h
-        category_font_size = int(height * 0.025) 
+        category_font_size = int(height * 0.035) 
         dollar_font_size = int(height * 0.05)   
         player_font_size = int(height * 0.03)   
         score_font_size = int(height * 0.04)    
@@ -140,7 +140,7 @@ class Game:
                         if question_rects[q].collidepoint(pos):
                             logger.info(f"Question selected: {q}")
                             draw_question_screen(self.screen, q, self.fonts)
-                            self.buzzer_round()
+                            self.buzzer_round(q)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
@@ -149,14 +149,16 @@ class Game:
 
     def play_final(self):
         play_music(final_music_list[0])
+        draw_question_screen(self.screen, self.board.final_q, self.fonts)
         # need to figure out how betting system will work
-        pass
+        while True:
+            pass
         
-    def buzzer_round(self):
-        pass
+    def buzzer_round(self, q: Question):
+        q.answered = True
 
     def add_players(self, num):
-        if num < 1 or num + len(self.players) > 6:
+        if num < 1 or num + len(self.players) > 4:
             logger.error(f"cannot add {num} players (max of 4)")
             return
 
@@ -217,7 +219,7 @@ class GameBoard:
 
 
 
-        self.round_final = Question(question_tuple[0],question_tuple[1],question_tuple[2],question_tuple[3],question_tuple[4])
+        self.final_q = Question(question_tuple[0],question_tuple[1],question_tuple[2],question_tuple[3],question_tuple[4])
 
         if cursor:
             cursor.close()

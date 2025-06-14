@@ -36,7 +36,7 @@ class Round:
             return []
 
         # SQL to find categories that have at least one question for each of the 5 values
-        # AND ensure they have *some* questions with values other than -1
+        # AND ensure they have questions with values other than -1
         sql_query = """
         SELECT category
         FROM questions
