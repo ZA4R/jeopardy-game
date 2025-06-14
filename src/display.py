@@ -1,34 +1,11 @@
 import logging
 from turtle import title
 import pygame
-import os
-
 from .game_utils import Round, Category, Question, Player
-
-# get current dir and project root
-current_dir = os.path.dirname(os.path.abspath(__file__))
-proj_root = os.path.abspath(os.path.join(current_dir, ".."))
 
 # get logger
 logger = logging.getLogger(__name__)
 
-# font setup
-pygame.font.init()
-try:
-    PIXEL_FONT = os.path.join(proj_root, "assets", "fonts", "pixel.ttf")
-except pygame.error as e:
-    logger.error(f"Unable to load font: {e}")
-except Exception as e:
-    logger.error(f"Unable to load font: {e}")
-
-category_font = pygame.font.Font(PIXEL_FONT, 40)
-dollar_font = pygame.font.Font(PIXEL_FONT, 60)
-question_font = pygame.font.Font(PIXEL_FONT, 45)
-instruction_font = pygame.font.Font(PIXEL_FONT, 30)
-player_font = pygame.font.Font(PIXEL_FONT, 30)
-score_font = pygame.font.Font(PIXEL_FONT, 30)
-buzzer_font = pygame.font.Font(PIXEL_FONT, 70)
-title_font = pygame.font.Font(PIXEL_FONT, 80)
 
 # colors
 BLACK = (0, 0, 0)
@@ -39,13 +16,71 @@ RED = (255, 0, 0)
 GREEN = (0, 128, 0)
 GRAY = (100, 100, 100)
 
-def draw_text(surface, text, font, color, center_x, center_y):
+def draw_text(surface, text, font, color, x, y, align="center", max_width=None, max_height=None):
     """
-    Helper function to render and draw text centered at given coordinates.
+    Draws text on a surface, with optional alignment and wrapping.
+    Args:
+        surface (pygame.Surface): The surface to draw on.
+        text (str): The text string to render.
+        font (pygame.font.Font): The Pygame font object to use.
+        color (tuple): RGB color for the text.
+        x (int): X-coordinate for the text (based on align).
+        y (int): Y-coordinate for the text (based on align).
+        align (str): "center", "left", "right".
+        max_width (int, optional): Maximum width for text before wrapping.
+        max_height (int, optional): Maximum height. If text exceeds, it will be clipped.
     """
-    text_surface = font.render(text, False, color)
-    text_rect = text_surface.get_rect(center=(center_x, center_y))
-    surface.blit(text_surface, text_rect)
+    words = text.split(' ')
+    lines = []
+    current_line = ""
+
+    # Text wrapping logic
+    for word in words:
+        # Check if adding the next word exceeds max_width
+        if max_width:
+            test_line = current_line + " " + word if current_line else word
+            if font.size(test_line)[0] <= max_width:
+                current_line = test_line
+            else:
+                lines.append(current_line)
+                current_line = word
+        else: # No max_width, just append
+            current_line += " " + word if current_line else word
+    lines.append(current_line)
+
+    total_text_height = sum(font.size(line)[1] for line in lines)
+    current_y_offset = 0
+
+    if align == "center":
+        current_y_offset = y - total_text_height // 2
+    elif align == "top":
+        current_y_offset = y
+    elif align == "bottom":
+        current_y_offset = y - total_text_height
+
+    for line in lines:
+        text_surface = font.render(line, True, color)
+        text_rect = text_surface.get_rect()
+
+        if align == "center":
+            text_rect.centerx = x
+        elif align == "left":
+            text_rect.left = x
+        elif align == "right":
+            text_rect.right = x
+
+        text_rect.centery = current_y_offset + text_rect.height // 2 # Center vertically within its line
+        
+        # Clip if exceeding max_height
+        if max_height and (text_rect.bottom > y + max_height // 2 or text_rect.top < y - max_height // 2):
+             # This is a simple clipping, for more advanced clipping you might need to render to a smaller surface
+             # or calculate which part of the text should be rendered. For categories, a simple clip is fine.
+             pass
+        else:
+            surface.blit(text_surface, text_rect)
+        
+        current_y_offset += text_rect.height # Move to the next line positiondef draw_text(surface, text, font, color, center_x, center_y):
+
 
 def draw_button(surface, text, font, rect, color, text_color, border_radius=10):
     """
@@ -148,7 +183,8 @@ def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
 
     return lines
 
-def draw_board(screen: pygame.Surface, categories: list[Category], players: list[Player]):
+def draw_board(screen: pygame.Surface, categories: list[Category], players: list[Player], 
+               fonts):
     """
     Draws the main Jeopardy game board, including categories, dollar values,
     and player names/scores at the bottom.
@@ -156,33 +192,34 @@ def draw_board(screen: pygame.Surface, categories: list[Category], players: list
     Args:
         screen (pygame.Surface): The Pygame screen surface to draw on.
         categories (list[Category]): A list of Category objects, expected to be of length 6.
-        players (list[Player]): A list of Player objects (1 to 6 players).
-        category_font (pygame.font.Font): Font for category titles.
-        dollar_font (pygame.font.Font): Font for dollar values.
-        player_font (pygame.font.Font): Font for player names and scores.
+        players (list[Player]): A list of Player objects (1 to 4 players).
+        category_font (pygame.font.Font): The font for category titles.
+        dollar_font (pygame.font.Font): The font for dollar values.
+        player_font (pygame.font.Font): The font for player names.
+        score_font (pygame.font.Font): The font for player scores.
 
     Returns:
         dict: A dictionary storing the Pygame Rect objects for each question cell.
-              Keys are (category_name, dollar_value) tuples, values are pygame.Rect objects.
+              Keys are (question_obj) tuples, values are pygame.Rect objects.
     """
+
     width, height = screen.get_size()
     screen.fill(BLACK)
 
     # --- Layout Calculations for Board and Player Area ---
     num_categories = len(categories)
     if num_categories != 6:
-        logger.error(f"Expected 6 categories, but got {num_categories}. Board layout may be off.")
-        # Proceeding with current num_categories, but layout might not be ideal
-        if num_categories == 0: # Avoid division by zero if no categories
-             return {}
+        logger.warning(f"Expected 6 categories, but got {num_categories}. Board layout may be off.")
+        if num_categories == 0:  # Avoid division by zero if no categories
+            return {}
 
-    num_question_rows = 5 # Fixed number of questions per category
+    num_question_rows = 5  # Fixed number of questions per category
 
     # Define vertical space ratios for different sections
-    TOP_MARGIN_RATIO = 0.05       # Space above the board
-    BOTTOM_BOARD_GAP_RATIO = 0.03 # Gap between board and player info
-    PLAYER_INFO_HEIGHT_RATIO = 0.15 # Height allocated for player scores
-    SIDE_MARGIN_RATIO = 0.05      # Left/right margins for the board
+    TOP_MARGIN_RATIO = 0.04          # Reduced top margin slightly
+    BOTTOM_BOARD_GAP_RATIO = 0.02    # Reduced gap
+    PLAYER_INFO_HEIGHT_RATIO = 0.12  # Reduced player info height slightly
+    SIDE_MARGIN_RATIO = 0.03         # Reduced side margins for more board space
 
     # Calculate pixel dimensions for each section
     top_margin_px = height * TOP_MARGIN_RATIO
@@ -209,9 +246,16 @@ def draw_board(screen: pygame.Surface, categories: list[Category], players: list
 
     # --- Draw Category Headers ---
     for col, category in enumerate(categories):
-        cat_x = grid_start_x + col * cell_width + cell_width // 2
-        # Position category title in the top row of the board area
-        draw_text(screen, category.title.upper(), category_font, YELLOW, cat_x, board_start_y + cell_height // 2)
+        # Calculate the center X for the category column
+        cat_x_center = grid_start_x + col * cell_width + cell_width // 2
+        # Calculate the Y center for the category header cell
+        cat_y_center = board_start_y + cell_height // 2
+        
+        # The crucial part: use max_width for text wrapping
+        # Pass the effective width for the category text
+        draw_text(screen, category.title.upper(), fonts["category"], YELLOW, 
+                  cat_x_center, cat_y_center, 
+                  align="center", max_width=int(cell_width * 0.9)) # 90% of cell_width for padding
 
         # Ensure questions are sorted by value for consistent display
         # Use a defensive check if questions might be missing or not sorted
@@ -223,21 +267,26 @@ def draw_board(screen: pygame.Surface, categories: list[Category], players: list
             rect_y = grid_start_y + row * cell_height
 
             # Inner padding for cells
-            rect_padding = 5
+            rect_padding = max(5, int(min(cell_width, cell_height) * 0.03)) # Dynamic padding
+            
             rect = pygame.Rect(rect_x + rect_padding, rect_y + rect_padding,
                                cell_width - (2 * rect_padding), cell_height - (2 * rect_padding))
 
-            question_rects[(category.title, question_obj.value)] = rect
+            question_rects[question_obj] = rect
 
             if hasattr(question_obj, 'answered') and question_obj.answered:
                 # Draw answered cell
-                pygame.draw.rect(screen, GRAY, rect, border_radius=10)
-                draw_text(screen, "X", dollar_font, BLACK, rect.centerx, rect.centery)
+                pygame.draw.rect(screen, GRAY, rect, border_radius=int(min(rect.width, rect.height) * 0.1)) # Dynamic border radius
+                draw_text(screen, "X", fonts["dollar"], BLACK, rect.centerx, rect.centery)
             else:
                 # Draw active question cell
-                pygame.draw.rect(screen, BLUE, rect, border_radius=10)
-                pygame.draw.rect(screen, WHITE, rect, 3, border_radius=10) # White border
-                draw_text(screen, f"${question_obj.value}", dollar_font, YELLOW, rect.centerx, rect.centery)
+                pygame.draw.rect(screen, BLUE, rect, border_radius=int(min(rect.width, rect.height) * 0.1)) # Dynamic border radius
+                pygame.draw.rect(screen, WHITE, rect, max(1, int(min(rect.width, rect.height) * 0.01)), border_radius=int(min(rect.width, rect.height) * 0.1)) # White border, dynamic thickness
+                
+                # Use max_width for the dollar value text as well
+                draw_text(screen, f"${question_obj.value}", fonts["dollar"], YELLOW, 
+                          rect.centerx, rect.centery, 
+                          align="center", max_width=int(rect.width * 0.8)) # 80% of rect width
 
     # --- Draw Player Names and Scores at the Bottom ---
     num_players = len(players)
@@ -253,26 +302,31 @@ def draw_board(screen: pygame.Surface, categories: list[Category], players: list
             # Draw a background for each player's info
             player_bg_color = (30, 30, 30) # Darker gray for player background
             # Add some padding/margin to player cells
-            player_inner_padding = 10
+            player_inner_padding = max(5, int(player_rect.height * 0.05)) # Dynamic inner padding
+            
             pygame.draw.rect(screen, player_bg_color, 
                              (player_rect.x + player_inner_padding, 
                               player_rect.y + player_inner_padding, 
                               player_rect.width - 2 * player_inner_padding, 
                               player_rect.height - 2 * player_inner_padding), 
-                             border_radius=5)
+                             border_radius=int(min(player_rect.width, player_rect.height) * 0.05))
             
             # Draw player name
-            draw_text(screen, player.name.upper(), player_font, WHITE, 
-                      player_rect.centerx, player_rect.y + player_info_height_px * 0.3)
+            # Align player name to the top-ish of its section
+            draw_text(screen, player.name.upper(), fonts["player"], WHITE, 
+                      player_rect.centerx, player_rect.y + player_info_height_px * 0.3,
+                      align="center", max_width=int(player_rect.width * 0.9))
             
             # Draw player score
-            draw_text(screen, f"${player.score}", score_font, YELLOW, 
-                      player_rect.centerx, player_rect.y + player_info_height_px * 0.7)
+            # Align player score to the bottom-ish of its section
+            draw_text(screen, f"${player.score}", fonts["score"], YELLOW, 
+                      player_rect.centerx, player_rect.y + player_info_height_px * 0.7,
+                      align="center", max_width=int(player_rect.width * 0.9))
 
     pygame.display.flip() # Update the full display Surface to the screen
     return question_rects
 
-def draw_question_screen(screen: pygame.Surface, question: Question):
+def draw_question_screen(screen: pygame.Surface, question: Question, fonts):
     """
     Draws the screen displaying the selected question.
     Includes a button to start the buzzer round.
@@ -282,7 +336,7 @@ def draw_question_screen(screen: pygame.Surface, question: Question):
     width, height = screen.get_size()
 
     # Wrap the question text to fit within the screen width
-    wrapped_lines = wrap_text(question.clue, question_font, width - 200)
+    wrapped_lines = wrap_text(question.clue, fonts["question"], width - 200)
 
     # Define the rectangle for the question box
     question_box_rect = pygame.Rect(50, 50, width - 100, height - 200)
@@ -290,12 +344,13 @@ def draw_question_screen(screen: pygame.Surface, question: Question):
     pygame.draw.rect(screen, WHITE, question_box_rect, 5, border_radius=20) # White border
 
     # Draw the wrapped question text, centered vertically within the box
-    line_height = question_font.get_linesize()
+    line_height = fonts["question"].get_linesize()
     text_start_y = question_box_rect.centery - (len(wrapped_lines) * line_height) // 2
     for i, line in enumerate(wrapped_lines):
-        draw_text(screen, line, question_font, WHITE, question_box_rect.centerx, text_start_y + i * line_height)
+        draw_text(screen, line, fonts["question"], WHITE, question_box_rect.centerx, text_start_y + i * line_height)
+    pygame.display.flip()
 
-def draw_main_menu(surface: pygame.Surface):
+def draw_main_menu(surface: pygame.Surface, fonts):
     """
     Draws the main menu screen with a title and buttons.
 
@@ -314,7 +369,7 @@ def draw_main_menu(surface: pygame.Surface):
     # --- Draw the Game Title ---
     title_text = "JEOPARDY! RIPOFF" # Updated title for theme
     # Using GOLD_TEXT for the title
-    draw_text(surface, title_text, title_font, YELLOW, screen_width / 2, screen_height / 4)
+    draw_text(surface, title_text, fonts["title"], YELLOW, screen_width / 2, screen_height / 4)
 
     # --- Define Button Properties ---
     main_button_width = 350
@@ -345,7 +400,7 @@ def draw_main_menu(surface: pygame.Surface):
         main_button_height
     )
     buttons['start_button'] = draw_button(
-        surface, "START GAME", category_font, start_button_rect,
+        surface, "START GAME", fonts["category"], start_button_rect,
         BLUE, YELLOW
     )
 
@@ -363,7 +418,7 @@ def draw_main_menu(surface: pygame.Surface):
         top_right_button_height
     )
     buttons['exit_button'] = draw_button(
-        surface, "X", category_font, top_right_exit_button_rect, # Using a smaller font for "X" if appropriate
+        surface, "X", fonts["category"], top_right_exit_button_rect, # Using a smaller font for "X" if appropriate
         RED, BLACK
     )
 

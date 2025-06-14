@@ -3,6 +3,7 @@ from locale import currency
 import sqlite3
 import os
 import logging
+import random
 
 # logger
 logger = logging.getLogger(__name__)
@@ -15,50 +16,17 @@ db_path = os.path.join(parent_dir, "data", "questions.db")
 class Round:
     def __init__(self):
         self.categories: list[Category] = []
-        self.get_random_categories()
+        cats = self.get_eligible_categories(6)
+        for cat in cats:
+            self.categories.append(Category(cat))
 
-    def get_random_categories(self):
+    def get_eligible_categories(self, num_categories: int = 6) -> list[str]:
         """
-        Returns a list of six random categories populated with questions.
+        Selects N random categories that have at least one question for each
+        of the 5 standard dollar values (100, 200, 300, 400, 500).
+        It explicitly excludes categories that only contain questions with value -1.
         """
-        try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-        except Exception as e:
-            logger.error(f"Unable to connect to db: {e}")
-            return []
-
-        # selects 6 random categories
-        # returns as list of tuples
-        # WHERE value = 100 ensures there is a set of questions aka not a final jeopardy only category 
-        try:
-            cursor.execute("SELECT DISTINCT category FROM questions WHERE value = 100 ORDER BY RANDOM() LIMIT 6")
-        except Exception as e:
-            logger.error(f"Unable to exectue category search query: {e}")
-            
-        category_tuples = cursor.fetchall()
-        for cat in category_tuples:
-            self.categories.append(Category(cat[0]))
-
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
-            
-class Category:
-    def __init__(self, title: str):
-        # pull questions from db
-        self.title = title
-        self.questions: list[Question] = []
-        self.get_random_questions(title)
-
-    def get_random_questions(self, category: str):
-        """
-        Returns list[Question] for given category, one question per value.
-
-        Params:
-            category: str="" - determines question category, must have 5 questions with distinct values
-        """
+        eligible_categories = []
         
         try:
             conn = sqlite3.connect(db_path)
@@ -67,48 +35,88 @@ class Category:
             logger.error(f"Unable to connect to db: {e}")
             return []
 
-        # selects 6 random categories
-        # returns as list of tuples
-        # WHERE value = 100 ensures there is a set of questions aka not a final jeopardy only category
-
-        sql_query = f"""
-        SELECT
-            clue,
-            answer,
-            value,
-            category,
-            origin
-        FROM (
-            SELECT
-                *,
-                ROW_NUMBER() OVER (PARTITION BY value ORDER BY RANDOM()) as rn_per_value,
-                RANDOM() as overall_random_sort
-            FROM
-                questions
-            WHERE
-                category = '{category}'
-        ) AS RankedQuestions
-        WHERE
-            rn_per_value = 1
-        ORDER BY
-            overall_random_sort
-        LIMIT 5;
-        """ 
+        # SQL to find categories that have at least one question for each of the 5 values
+        # AND ensure they have *some* questions with values other than -1
+        sql_query = """
+        SELECT category
+        FROM questions
+        WHERE value IN (100, 200, 300, 400, 500)
+        GROUP BY category
+        HAVING COUNT(DISTINCT value) = 5
+        AND SUM(CASE WHEN value != -1 THEN 1 ELSE 0 END) > 0; -- Ensures it's not a -1 only category
+        """
+        
         try:
             cursor.execute(sql_query)
-        except Exception as e:
-            logger.error(f"Unable to exectue category search query: {e}")
-            return
+            all_eligible_titles = [row[0] for row in cursor.fetchall()]
             
-        question_tuples = cursor.fetchall()
-        for q in question_tuples:
-            self.questions.append(Question(q[0],q[1],q[2],q[3],q[4]))
-        sorted(self.questions, key= lambda q: q.value, reverse=False)
+            if len(all_eligible_titles) == 0:
+                logger.critical("No categories found in the database that meet the criteria (5 unique standard values and not -1 only). Please check your database.")
+                return []
 
-        if cursor:
-            cursor.close()
-        if conn:
+            if len(all_eligible_titles) < num_categories:
+                logger.warning(f"Only found {len(all_eligible_titles)} categories with 5 unique standard values. Requesting {num_categories}. Will return fewer.")
+                # Return all available eligible categories, even if fewer than requested
+                return all_eligible_titles 
+                
+            # Randomly select num_categories from the eligible list
+            eligible_categories = random.sample(all_eligible_titles, num_categories)
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error fetching eligible categories: {e}")
+        finally:
             conn.close()
+            
+        return eligible_categories        
+class Category:
+    def __init__(self, title: str):
+        # pull questions from db
+        self.title = title
+        self.questions: list[Question] = []
+        self._get_unique_value_questions(title)
+
+    def _get_unique_value_questions(self, category_title: str):
+        """
+        Attempts to retrieve one question for each of the standard Jeopardy dollar values
+        (100, 200, 300, 400, 500) for a given category.
+        If a value is not found, it will not be included.
+        """
+        desired_values = [100, 200, 300, 400, 500]
+        found_questions = []
+
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+        except Exception as e:
+            logger.error(f"Unable to connect to db: {e}")
+            return []
+
+        for value in desired_values:
+            sql_query = """
+            SELECT clue, answer, value, category, origin
+            FROM questions
+            WHERE category = ? AND value = ?
+            ORDER BY RANDOM()
+            LIMIT 1;
+            """
+            try:
+                # --- CRITICAL CHANGE HERE ---
+                # Pass a tuple of parameters as the second argument to execute
+                cursor.execute(sql_query, (category_title, value))
+                # --------------------------
+                
+                row = cursor.fetchone()
+                if row:
+                    found_questions.append(Question(*row))
+                else:
+                    logger.warning(f"Category '{category_title}' missing question for value ${value}.")
+            except sqlite3.Error as e:
+                logger.error(f"Database error fetching question for {category_title} at ${value}: {e}")
+                continue # Continue to next value even if one fails
+
+        conn.close()
+        found_questions.sort(key=lambda q: q.value)
+        self.questions = found_questions
 class Question:
     """
     Represents a question including its clue, answer, value, category, and origin.
@@ -123,7 +131,7 @@ class Question:
         self.value = value
         self.category = category
         self.origin = origin
-        self.ansewred = False
+        self.answered = False
 
 class Player:
     name = "Steve"
