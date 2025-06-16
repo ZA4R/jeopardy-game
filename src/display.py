@@ -1,5 +1,4 @@
 import logging
-from turtle import title
 import pygame
 from .game_utils import Round, Category, Question, Player
 
@@ -80,7 +79,6 @@ def draw_text(surface, text, font, color, x, y, align="center", max_width=None, 
             surface.blit(text_surface, text_rect)
         
         current_y_offset += text_rect.height # Move to the next line positiondef draw_text(surface, text, font, color, center_x, center_y):
-
 
 def draw_button(surface, text, font, rect, color, text_color, border_radius=10):
     """
@@ -350,12 +348,18 @@ def draw_question_screen(screen: pygame.Surface, question: Question, fonts):
         draw_text(screen, line, fonts["question"], WHITE, question_box_rect.centerx, text_start_y + i * line_height)
     pygame.display.flip()
 
-def draw_main_menu(surface: pygame.Surface, fonts):
+def draw_main_menu(surface: pygame.Surface, fonts: dict) -> dict[str, pygame.Rect]:
     """
-    Draws the main menu screen with a title and buttons.
+    Draws the main menu screen with a large, wrapped title and buttons.
+    The title takes up more screen space and wraps properly.
+    The start button is positioned closer to the bottom of the screen.
 
     Args:
         surface (pygame.Surface): The surface to draw on (e.g., the screen).
+        fonts (dict): A dictionary of Pygame font objects.
+                      Expected keys: "title" (for the main title),
+                      "question" (for the START GAME button text),
+                      "category" (for the 'X' exit button text).
 
     Returns:
         dict: A dictionary containing the pygame.Rect objects for each button,
@@ -363,66 +367,271 @@ def draw_main_menu(surface: pygame.Surface, fonts):
     """
     screen_width, screen_height = surface.get_size()
 
-    # Fill the background with the new Jeopardy Blue
+    # Fill the background with the Jeopardy Blue
     surface.fill(BLUE)
 
-    # --- Draw the Game Title ---
-    title_text = "JEOPARDY! RIPOFF" # Updated title for theme
-    # Using GOLD_TEXT for the title
-    draw_text(surface, title_text, fonts["title"], YELLOW, screen_width / 2, screen_height / 4)
+    # --- Draw the Game Title (Large & Wrapped) ---
+    title_text = "DUNCAN'S DEFINITIVELY NOT A GAME SHOW ABOUT QUESTIONS & ANSWERS"
+    
+    # Define the max width the title should occupy (e.g., 85% of screen width)
+    max_title_render_width = int(screen_width * 0.85)
+
+    # Get the title font from the provided dictionary
+    title_font = fonts["title"]
+
+    # Use the provided wrap_text function
+    wrapped_lines = wrap_text(title_text, title_font, max_title_render_width)
+
+    # Calculate the total height of the wrapped title block
+    total_title_height = len(wrapped_lines) * title_font.get_height()
+    
+    # Center the entire title block vertically in the upper portion
+    # For example, vertically centered within the top 30% of the screen.
+    # This leaves more space below for buttons.
+    title_block_center_y = int(screen_height * 0.25) # Position the center of the text block
+    title_start_y = title_block_center_y - (total_title_height // 2)
+
+
+    # Render and blit each wrapped line
+    for i, line in enumerate(wrapped_lines):
+        line_y_pos = title_start_y + (i * title_font.get_height())
+        draw_text(surface, line, title_font, YELLOW, screen_width / 2, line_y_pos, align="center")
+
 
     # --- Define Button Properties ---
     main_button_width = 350
-    main_button_height = 150
-    main_button_spacing = 40 # Space between buttons
+    main_button_height = 100 # Adjusted for a more compact layout
+    button_margin_from_bottom = 80 # Distance from screen bottom to start button
 
-    # Calculate main button positions to center them vertically and horizontally
-    center_x = screen_width / 2
-    
-    # Calculate the total height of all *main menu* buttons and spaces
-    # (Assuming you only have START, OPTIONS, EXIT in the main block)
-    # Based on your previous code, you had 'total_buttons_height = (button_height * 3) + (button_spacing * 2)'
-    # If you only want START and EXIT *centered*, adjust this.
-    # For now, let's just make sure START and EXIT are there.
-    
-    # If you intend to have START and EXIT as the only centered buttons:
-    total_centered_buttons_height = (main_button_height * 2) + main_button_spacing
-    start_y_centered_block = (screen_height / 2) - (total_centered_buttons_height / 2) # Start Y for the block of centered buttons
-
-    # --- Draw Buttons ---
-    buttons = {}
-
-    # Start Button (centered in the main block)
+    # Calculate Start Button Position (closer to bottom)
     start_button_rect = pygame.Rect(
-        center_x - main_button_width / 2,
-        start_y_centered_block + main_button_height + main_button_spacing,
+        (screen_width / 2) - (main_button_width / 2), # Centered horizontally
+        screen_height - main_button_height - button_margin_from_bottom, # Positioned from the bottom
         main_button_width,
         main_button_height
     )
+    
+    # --- Draw Buttons ---
+    buttons = {}
+
+    # Start Button
     buttons['start_button'] = draw_button(
-        surface, "START GAME", fonts["question"], start_button_rect,
-        BLUE, YELLOW
+        surface, "START GAME", fonts["question"], start_button_rect, # Using "question" font for button text
+        BLUE, YELLOW # Button fill color, text color
     )
 
-
     # --- Top-Right Exit Button ---
-    # Define properties for this smaller exit button
-    top_right_button_width = 100
-    top_right_button_height = 40
+    # This button remains in the top-right corner as a small "X"
+    top_right_button_width = 60 # Smaller for a close button look
+    top_right_button_height = 60 # Smaller for a close button look
     padding = 20 # Padding from the top and right edges
 
     top_right_exit_button_rect = pygame.Rect(
-        screen_width - top_right_button_width - padding,  # X: Screen width - button width - padding
+        screen_width - top_right_button_width - padding, # X: Screen width - button width - padding
         padding,                                       # Y: Padding from top
         top_right_button_width,
         top_right_button_height
     )
     buttons['exit_button'] = draw_button(
-        surface, "X", fonts["category"], top_right_exit_button_rect, # Using a smaller font for "X" if appropriate
-        RED, BLACK
+        surface, "X", fonts["category"], top_right_exit_button_rect, # Using "category" font for "X"
+        RED, BLACK # Button fill color, text color
     )
 
-    # not used in loop so display flip neccessary
     pygame.display.flip()
     
     return buttons
+
+def display_buzzed(font: pygame.font.Font, player: Player, screen: pygame.Surface, fonts: dict) -> None:
+    """
+    Displays a message indicating which player buzzed in, centered on a black background.
+    Additionally, displays instructions for handling correct/incorrect answers.
+
+    Args:
+        font (pygame.font.Font): The Pygame font object to render the main buzz message.
+        player (Player): The Player object whose name will be displayed.
+        screen (pygame.Surface): The Pygame screen surface to draw on.
+        fonts (dict): A dictionary of Pygame font objects.
+                      Expected key: "action_prompt" for the instruction text.
+    """
+    screen.fill(BLACK) 
+    width, height = screen.get_size()
+    
+    screen_center_x = width // 2
+    screen_center_y = height // 2
+
+    message = f"{player.name} buzzed in!"
+
+    # It takes x, y as the center coordinates when align="center".
+    # No max_width or max_height is applied here to allow the text to fill the center as much as needed.
+    draw_text(screen, message, font, WHITE, screen_center_x, screen_center_y, align="center")
+
+    # --- Add bottom left and bottom right instructions ---
+    padding = 20
+    bottom_y = height - padding
+
+    # Bottom Left: "Press space for correct answers"
+    correct_prompt = "Press space for correct answers"
+    draw_text(screen, correct_prompt, fonts["player"], WHITE, 
+              padding, bottom_y, align="left", max_width=int(width * 0.4))
+
+    # Bottom Right: "Press backspace for incorrect answers"
+    incorrect_prompt = "Press backspace for incorrect answers"
+    draw_text(screen, incorrect_prompt, fonts["player"], WHITE, 
+              width - padding, bottom_y, align="right", max_width=int(width * 0.4))
+
+    pygame.display.flip()
+
+def display_correct_answer(screen: pygame.Surface, question: Question, fonts) -> None:
+    """
+    Displays the correct answer to a question and a prompt to continue.
+
+    Args:
+        screen (pygame.Surface): The Pygame screen surface to draw on.
+        question (Question): The Question object containing the answer.
+        fonts (dict): A dictionary of Pygame font objects.
+    """
+    screen.fill(BLACK) 
+    width, height = screen.get_size()
+
+    # --- Display the Answer (Upper 75%) ---
+    answer_area_height = height * 0.75
+    answer_area_center_y = answer_area_height / 2
+    answer_text_max_width = width * 0.9 # 90% of screen width for padding
+
+    answer_message = f"Answer: {question.answer}"
+
+    # Use draw_text to render the answer, centered within its allocated area
+    draw_text(
+        screen,
+        answer_message,
+        fonts["question"],
+        WHITE,
+        width // 2,
+        answer_area_center_y,
+        align="center",
+        max_width=int(answer_text_max_width)
+    )
+
+    # --- Display "Press space to continue" (Bottom 25%) ---
+    continue_message_area_height = height * 0.25
+    continue_message_area_center_y = height - (continue_message_area_height / 2)
+    continue_message = "Press space to continue"
+
+    # Use draw_text to render the continue message, centered within its allocated area
+    draw_text(
+        screen,
+        continue_message,
+        fonts["player"], # Use a smaller font for this message
+        WHITE,
+        width // 2,
+        continue_message_area_center_y,
+        align="center"
+    )
+
+    pygame.display.flip()
+
+def display_final_jeopardy_title(screen: pygame.Surface, fonts: dict, players: list) -> None:
+    """
+    Displays "FINAL JEOPARDY" in yellow text on a blue background,
+    and then lists player names (yellow) and scores (white)
+    in descending order by score, centered below the title.
+
+    Args:
+        screen (pygame.Surface): The Pygame screen surface to draw on.
+        fonts (dict): A dictionary of Pygame font objects.
+                      Expected keys: "title" (for "FINAL JEOPARDY"),
+                      "player" (for player names), and "score" (for player scores).
+        players (list): A list of player objects. Each player object should have
+                        'name' (str) and 'score' (int) attributes.
+    """
+    screen.fill(BLUE) # Fill the background with the Jeopardy! blue
+
+    width, height = screen.get_size()
+    
+    # --- Display "FINAL JEOPARDY" Title ---
+    title_message = "FINAL JEOPARDY"
+    
+    # Position the title in the upper half, centered horizontally.
+    # We want it to occupy a chunk in the upper part, not just the exact quarter mark.
+    # Let's say its vertical center is at 25% of screen height.
+    title_center_x = width // 2
+    title_center_y = int(height * 0.25) # 25% down from the top
+
+    draw_text(
+        screen,
+        title_message,
+        fonts["title"], # Using 'title' font from your dict
+        YELLOW,
+        title_center_x,
+        title_center_y,
+        align="center",
+        max_width=int(width * 0.9) # Occupy 90% of the screen width for the text
+    )
+
+    # --- Display Player Names and Scores ---
+    
+    # 1. Sort players by score in descending order.
+    sorted_players = sorted(players, key=lambda p: p.score, reverse=True)
+
+    # 2. Define vertical spacing and font sizes for player display.
+    player_name_font = fonts["player"]
+    player_score_font = fonts["score"]
+    
+    # Calculate line height for each player entry, considering both fonts and adding padding.
+    line_height = max(player_name_font.get_height(), player_score_font.get_height()) + 15 
+    
+    # 3. Calculate the total height the block of player information will occupy.
+    total_players_block_height = len(sorted_players) * line_height
+
+    # 4. Determine the available vertical space for the player list.
+    # This space is from the *bottom of the title* down to the *bottom of the screen*.
+    # Calculate the Y-coordinate where the title text effectively ends.
+    title_text_bottom_y = title_center_y + (fonts["title"].get_height() // 2)
+
+    # The region for players starts just below the title and goes to the bottom.
+    # Add a buffer for visual separation.
+    region_start_y = title_text_bottom_y + 30 # 30 pixels buffer after title
+    region_end_y = height # Bottom of the screen
+
+    # Calculate the exact vertical center of this *remaining region*.
+    # This is the point where the middle of our player block should sit.
+    center_of_remaining_region_y = region_start_y + (region_end_y - region_start_y) // 2
+
+    # 5. Calculate the starting Y-position for the *first* player.
+    # To center the block, we subtract half of the block's total height from the center of the region.
+    start_y_for_players = center_of_remaining_region_y - (total_players_block_height // 2)
+
+    # 6. Define horizontal positioning for names (left-aligned) and scores (right-aligned).
+    # These are horizontal offsets from the screen center for name and score columns.
+    # Adjust these values based on how wide you want your "columns" to be.
+    name_column_x_pos = int(width * 0.3) # 30% from the left edge for name's midleft
+    score_column_x_pos = int(width * 0.7) # 70% from the left edge for score's midright
+
+    # 7. Draw each player's name and score.
+    for i, player in enumerate(sorted_players):
+        # Current player's Y position within the vertically centered block.
+        y_pos = start_y_for_players + i * line_height
+        
+        # Player Name (aligned left, in YELLOW)
+        draw_text(
+            screen,
+            player.name,
+            player_name_font, # Use 'player' font from your dict
+            YELLOW,           # Name color is YELLOW
+            name_column_x_pos,
+            y_pos,
+            align="left"
+        )
+        
+        # Player Score (aligned right, in WHITE)
+        draw_text(
+            screen,
+            f"${player.score:,}", # Format score with comma for thousands
+            player_score_font,    # Use 'score' font from your dict
+            WHITE,                # Score color is WHITE
+            score_column_x_pos,
+            y_pos,
+            align="right"
+        )
+
+    pygame.display.flip() # Update the display to show all changes

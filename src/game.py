@@ -1,9 +1,8 @@
 from __future__ import annotations
-from turtle import Turtle
 
 from pygame import Surface
 import pygame
-from .display import draw_board, draw_question_screen, draw_main_menu
+from .display import draw_board, draw_question_screen, draw_main_menu, display_buzzed, display_correct_answer, display_final_jeopardy_title
 from .game_utils import Question, Category, Round, Player
 from .music import play_music, stop_music, set_music_volume, load_music_files, final_music_list, victory_music_list, title_music_list
 import logging
@@ -35,29 +34,28 @@ class Game:
     """ 
 
     def __init__(self, screen: Surface):
-        self.board = GameBoard(2)
-        self.players = []
-        self.add_players(4) # 4 hardcoded until basic outline complete
+        self.board = GameBoard(2) # two rounds are standard, will be variable when settings are implemented
+        self.players : list[Player] = []
+        self.add_players(3) # 3 player games are standard, will be variable when settings are implemented
         self.screen = screen
 
         # device specific port where arduino is connected
-        SERIAL_PORT = 'COM3'
+        SERIAL_PORT = 'COM4'
         # match arduino, 9600 bits is standard
         BAUD_RATE = 9600
 
         # serial setup
-        #ser = None
-        #try:
-        #    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-        #    if ser.is_open:
-        #        logger.info(f"Serial port open: {SERIAL_PORT}")
-        #    else:
-        #        logger.error(f"Unable to open: {SERIAL_PORT}")
-#
-        #except serial.SerialException as e:
-        #    logger.error(f"Unable to connect to port: {SERIAL_PORT}: {e}")
-        #    sys.exit()
-        #self.serial = ser
+        self.serial = None
+        try:
+            self.serial = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+            if self.serial.is_open:
+                logger.info(f"Serial port open: {SERIAL_PORT}")
+            else:
+                logger.error(f"Unable to open: {SERIAL_PORT}")
+
+        except Exception as e:
+            logger.error(f"Unable to connect to port: {SERIAL_PORT}\n because of: {e}")
+            self.quit()
 
         
         # font setup
@@ -68,7 +66,6 @@ class Game:
             logger.error(f"Unable to load font: {e}")
         except Exception as e:
             logger.error(f"Unable to load font: {e}")
-        global category_font, dollar_font, player_font, score_font
 
         height = pygame.display.Info().current_h
         category_font_size = int(height * 0.035) 
@@ -76,7 +73,7 @@ class Game:
         player_font_size = int(height * 0.03)   
         score_font_size = int(height * 0.04)    
         question_font_size = int(height * 0.06)
-        title_font_size = int(height * 0.08)
+        title_font_size = int(height * 0.1)
         category_font = pygame.font.Font(PIXEL_FONT, category_font_size)
         dollar_font = pygame.font.Font(PIXEL_FONT, dollar_font_size)
         player_font = pygame.font.Font(PIXEL_FONT, player_font_size)
@@ -110,6 +107,9 @@ class Game:
                         running = False
                     elif buttons['start_button'].collidepoint(pos):
                         running = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
 
         stop_music()
         round_num = 1
@@ -119,8 +119,7 @@ class Game:
         self.play_final()
     
     def play_round(self, round: Round, round_num : int):
-        # daily doubles
-        num_of_dd_left = round_num
+        # daily doubles to implement
 
         # scale category values for given round
         for cat in round.categories:
@@ -130,7 +129,7 @@ class Game:
         running = True
         while running:
             # update board
-            # quesntion_rects is dict {(category)}
+            # quesntion_rects is dict {Question: rect}
             question_rects = draw_board(self.screen, round.categories, self.players, self.fonts)
 
             for event in pygame.event.get():
@@ -138,32 +137,206 @@ class Game:
                     pos = pygame.mouse.get_pos()
                     for q in question_rects:
                         if question_rects[q].collidepoint(pos):
-                            logger.info(f"Question selected: {q}")
-                            draw_question_screen(self.screen, q, self.fonts)
                             self.buzzer_round(q)
+
+                            # exit round if all questions have been answered
+                            if check_for_all_answered(question_rects):
+                                running = False
+                                
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
-        #if self.serial:
-        #    self.serial.close()
+                    
 
     def play_final(self):
+        # awaiting betting implementation
         play_music(final_music_list[0])
+        display_final_jeopardy_title(self.screen, self.fonts, self.players)
+
+        # clear events
+        pygame.event.get()
+
+        # wait for host to continue
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_SPACE:
+                            waiting = False
+
         draw_question_screen(self.screen, self.board.final_q, self.fonts)
-        # need to figure out how betting system will work
-        while True:
+        
+        start_final = pygame.time.get_ticks()
+
+
+        # clear events
+        pygame.event.get()
+        # 30 second timer for final jeopardy
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            running = False
+                # redundant to ensure holding down a button doesn't interfere with timer
+                if (pygame.time.get_ticks() - start_final > 30000):
+                    running = False
+            if (pygame.time.get_ticks() - start_final > 30000):
+                running = False
+
+        display_correct_answer(self.screen, self.board.final_q, self.fonts)
+
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_SPACE:
+                            running = False
+
+        # end game for now
+        # create winner screen, betting screen, betting system in future
+        self.quit()
+
+    def reset_buzzed(self):
+        for p in self.players:
+            p.answered = False
+    
+        
+    def wait_for_buzz_in(self, ser: serial.Serial):
+        # wait for serial response
+        while ser.in_waiting == 0:
             pass
         
+        byte_response = ser.readline()
+        return byte_response.decode("utf-8").strip()
+
+    def handle_buzz_in_response(self, ser_response: str, question_value: int) -> bool:
+        """Manages system response to timeouts and buzz-ins. Returns False to exit buzz-in round.
+        Args:
+            ser (serial.Serial): serial connection to buzzer system
+            ser_response (str): cleaned str containing serial response to "start" command
+
+        Returns:
+            bool: Returns False when buzzer round should end
+        """
+
+        # quit round if timeout occured
+        if ser_response == "timeout":
+            return False
+
+        # response should be index of player
+        # check for bad serial response
+        try:
+            resp = int(ser_response)
+        except ValueError:
+            logger.error(f"Incorrect serial usage detected. {ser_response} should be the index of the player that buzzed")
+            self.quit()
+
+        if resp < 0 or resp > len(self.players) - 1:
+            logger.error(f"Incorrect serial usage detected. {resp} should be the index of the player that buzzed")
+            self.quit()
+
+        buzzed_player: Player = self.players[resp]
+        buzzed_player.answered = True
+
+        # display buzzed in screen
+        # update player score based on host response
+        display_buzzed(self.fonts["question"], buzzed_player, self.screen, self.fonts)
+
+        # clear event list
+        pygame.event.get()
+
+        # wait for host response
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        # update score
+                        buzzed_player.score += question_value
+
+                        # inform buzzer system
+                        if self.serial:
+                            self.serial.write(b"correct\n")
+
+                        # exit round 
+                        return False
+
+                    if event.key == pygame.K_BACKSPACE:
+                        # update score
+                        buzzed_player.score -= question_value
+
+                        # exit loop to check if all players have answered
+                        waiting = False
+
+        # check if all players have buzzed
+        for player in self.players:
+            if not player.answered:
+                # send buzzed_in player to serial to lock them out for round
+                idx = f"{resp}\n"
+                if self.serial:
+                    self.serial.write(idx.encode("utf-8"))
+                # continue the round
+                return True
+
+        # all players have buzzed in, inform system and end round
+        if self.serial:
+            self.serial.write(b"all players buzzed")
+        return False
+
     def buzzer_round(self, q: Question):
+        # clear event list
+        pygame.event.get()
+        
+        draw_question_screen(self.screen, q, self.fonts)
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if self.serial:
+                            self.serial.write(b"start\n")
+
+                        buzzing = True
+                        while buzzing:
+                            draw_question_screen(self.screen, q, self.fonts)
+                            if self.serial:
+                                ser_response = self.wait_for_buzz_in(self.serial)
+
+                            # returns False if player gets correct answer or out of players
+                            buzzing = self.handle_buzz_in_response(ser_response, q.value)
+                        running = False
+                        
+
+
         q.answered = True
+        self.reset_buzzed()
+        display_correct_answer(self.screen, q, self.fonts)
+        # clear events
+        pygame.event.get() 
+        # wait until space to continue
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        waiting = False
+
+    
+    def quit(self):
+        if self.serial:
+            self.serial.close()
+        if pygame:
+            pygame.quit()
+        sys.exit()
 
     def add_players(self, num):
-        if num < 1 or num + len(self.players) > 4:
-            logger.error(f"cannot add {num} players (max of 4)")
+        if num < 1 or num + len(self.players) > 3:
+            logger.error(f"cannot add {num} players (max of 3)")
             return
 
-        for _ in range(num):
-            self.players.append(Player())
+        for i in range(num):
+            self.players.append(Player(i + 1))
 
     def remove_players(self, num):
         if num < 1:
@@ -226,4 +399,18 @@ class GameBoard:
         if conn:
             conn.close()
 
+
+# helper functions
+
+def check_for_all_answered(question_rects: dict[Question, pygame.rect.Rect]) -> bool:
+    """Checks if every question in dict has been answered. Returns bool answer.
+
+    Args:
+        question_rects (dict[Question, pygame.rect.Rect]): Gameboard dictionary containing questions
+    """
+
+    for q in question_rects:
+        if not q.answered:
+            return False
+    return True
 

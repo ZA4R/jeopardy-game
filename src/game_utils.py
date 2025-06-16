@@ -36,7 +36,7 @@ class Round:
             return []
 
         # SQL to find categories that have at least one question for each of the 5 values
-        # AND ensure they have questions with values other than -1
+        # and ensure they have questions with values other than -1
         sql_query = """
         SELECT category
         FROM questions
@@ -70,7 +70,6 @@ class Round:
         return eligible_categories        
 class Category:
     def __init__(self, title: str):
-        # pull questions from db
         self.title = title
         self.questions: list[Question] = []
         self._get_unique_value_questions(title)
@@ -100,10 +99,9 @@ class Category:
             LIMIT 1;
             """
             try:
-                # --- CRITICAL CHANGE HERE ---
-                # Pass a tuple of parameters as the second argument to execute
+                # Pass a tuple of parameters as the second argument to execute 
+                # so quotes don't mess with retrival
                 cursor.execute(sql_query, (category_title, value))
-                # --------------------------
                 
                 row = cursor.fetchone()
                 if row:
@@ -120,7 +118,7 @@ class Category:
 class Question:
     """
     Represents a question including its clue, answer, value, category, and origin.
-
+    
     Notes: 
         value = -1 defines a final jeopardy question
     """
@@ -134,8 +132,14 @@ class Question:
         self.answered = False
 
 class Player:
-    name = "Steve"
-    score = 0
+
+    def __init__(self, player_num: int) -> None:
+         self.name = f"Player {player_num}"
+         self.score = 0
+         self.answered = False
+
+
+    
 
 
     
